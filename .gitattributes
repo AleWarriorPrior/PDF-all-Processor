@@ -1,0 +1,8 @@
+# 强制所有文件使用 LF 换行（防止 Windows CRLF 导致 Docker shell 脚本执行失败）
+* text=auto eol=lf
+
+# Shell 脚本必须用 LF
+*.sh text eol=lf
+
+# Dockerfile 也用 LF
+Dockerfile text eol=lf

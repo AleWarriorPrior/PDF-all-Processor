@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 智能提取工具</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1>📄 PDF 智能文本提取</h1>
+            <p class="subtitle">批量上传 · 自动识别类型 · 一键导出 CSV</p>
+        </header>
+
+        <!-- 上传区域 -->
+        <section id="upload-section" class="card upload-card">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-icon">📁</div>
+                <h3>拖拽 PDF 文件到此处</h3>
+                <p class="drop-hint">或点击下方按钮选择文件（支持多选）</p>
+                <label for="file-input" class="btn btn-primary btn-large">
+                    选择 PDF 文件
+                </label>
+                <input type="file" id="file-input"
+                       accept=".pdf" multiple hidden>
+            </div>
+
+            <!-- 文件列表预览 -->
+            <div id="file-list" class="file-list" style="display:none;">
+                <h4>已选文件 (<span id="file-count">0</span>)</h4>
+                <ul id="file-items"></ul>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div id="upload-actions" class="actions" style="display:none;">
+                <button id="start-btn" class="btn btn-success btn-large" onclick="startProcessing()">
+                    ▶ 开始处理
+                </button>
+                <button id="clear-btn" class="btn btn-outline" onclick="clearFiles()">
+                    🗑 清空列表
+                </button>
+            </div>
+        </section>
+
+        <!-- 进度区域 -->
+        <section id="progress-section" class="card progress-card" style="display:none;">
+            <div class="progress-header">
+                <h3>⚙️ 处理进度</h3>
+                <button id="cancel-btn" class="btn btn-sm btn-danger" onclick="cancelTask()">
+                    ✕ 取消任务
+                </button>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="progress-bar-wrapper">
+                <div class="progress-info">
+                    <span id="progress-text">准备中...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="progress-bar-track">
+                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- 详细状态 -->
+            <div class="status-details">
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">总计</span>
+                        <span id="stat-total" class="stat-value">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">已完成</span>
+                        <span id="stat-processed" class="stat-value success">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">成功</span>
+                        <span id="stat-success" class="stat-value ok">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">失败</span>
+                        <span id="stat-failed" class="stat-value error">0</span>
+                    </div>
+                </div>
+                <div class="current-file">
+                    <span class="current-label">当前处理：</span>
+                    <span id="current-filename" class="current-name">—</span>
+                </div>
+
+                <!-- PDF 类型构成 -->
+                <div id="type-stats-panel" class="type-stats-panel" style="display:none;">
+                    <div class="type-stats-title">📊 PDF 文档构成</div>
+                    <div class="type-stats-grid">
+                        <div class="type-stat-item type-text">
+                            <span class="type-icon">📝</span>
+                            <span class="type-name">纯文本</span>
+                            <span id="stat-text-only" class="type-count">0</span>
+                        </div>
+                        <div class="type-stat-item type-scan">
+                            <span class="type-icon">📷</span>
+                            <span class="type-name">扫描件</span>
+                            <span id="stat-scan-only" class="type-count">0</span>
+                        </div>
+                        <div class="type-stat-item type-mixed">
+                            <span class="type-icon">📄+📷</span>
+                            <span class="type-name">混合型</span>
+                            <span id="stat-mixed" class="type-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 完成区域 -->
+        <section id="result-section" class="card result-card" style="display:none;">
+            <div id="result-success" style="display:none;">
+                <div class="result-icon">✅</div>
+                <h3>处理完成！</h3>
+                <div class="result-summary">
+                    <p>共处理 <strong id="result-total">0</strong> 个文件，
+                       成功 <strong id="result-ok">0</strong> 个，
+                       失败 <strong id="result-err">0</strong> 个</p>
+                </div>
+
+                <!-- PDF 类型构成（结果区） -->
+                <div id="result-type-stats" class="result-type-stats" style="display:none;">
+                    <div class="type-stats-title-sm">📊 文档类型分布</div>
+                    <div class="type-badges">
+                        <span class="type-badge badge-text">
+                            📝 纯文本 <strong id="res-text-only">0</strong>
+                        </span>
+                        <span class="type-badge badge-scan">
+                            📷 扫描件 <strong id="res-scan-only">0</strong>
+                        </span>
+                        <span class="type-badge badge-mixed">
+                            📄+📷 混合型 <strong id="res-mixed">0</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <a id="download-link" href="#" download class="btn btn-success btn-large">
+                        📥 下载 CSV 结果
+                    </a>
+                    <button class="btn btn-outline" onclick="resetAll()">
+                        🔄 继续处理其他文件
+                    </button>
+                </div>
+            </div>
+
+            <div id="result-error" style="display:none;">
+                <div class="result-icon error-icon">❌</div>
+                <h3>处理失败</h3>
+                <p id="error-message" class="error-text"></p>
+                <button class="btn btn-outline" onclick="resetAll()">重新开始</button>
+            </div>
+        </section>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <p>基于 PyMuPDF + MinerU OCR · 数据存储由 PocketBase 驱动</p>
+        </footer>
+    </div>
+
+    <script>
+        // ─── 状态管理 ───
+        let selectedFiles = [];
+        let currentTaskId = null;
+        let eventSource = null;
+
+        // ─── DOM 元素引用 ───
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileList = document.getElementById('file-list');
+        const fileItems = document.getElementById('file-items');
+        const fileCount = document.getElementById('file-count');
+        const uploadActions = document.getElementById('upload-actions');
+
+        // ══════════════════════════════════
+        // 文件选择 & 拖放
+        // ══════════════════════════════════
+
+        // 点击选择文件
+        fileInput.addEventListener('change', (e) => {
+            addFiles(Array.from(e.target.files));
+            e.target.value = '';  // 允许重复选择同一文件
+        });
+
+        // 拖放事件
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files).filter(f =>
+                f.name.toLowerCase().endsWith('.pdf')
+            );
+            if (files.length === 0) {
+                alert('只支持 .pdf 格式文件！');
+                return;
+            }
+            addFiles(files);
+        });
+
+        function addFiles(files) {
+            selectedFiles.push(...files);
+            renderFileList();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function clearFiles() {
+            selectedFiles = [];
+            renderFileList();
+        }
+
+        function renderFileList() {
+            if (selectedFiles.length === 0) {
+                fileList.style.display = 'none';
+                uploadActions.style.display = 'none';
+                return;
+            }
+
+            fileList.style.display = 'block';
+            uploadActions.style.display = 'flex';
+            fileCount.textContent = selectedFiles.length;
+
+            fileItems.innerHTML = selectedFiles.map((f, i) => `
+                <li class="file-item">
+                    <span class="file-name">${escapeHtml(f.name)}</span>
+                    <span class="file-size">${formatSize(f.size)}</span>
+                    <button class="remove-btn" onclick="removeFile(${i})" title="移除">✕</button>
+                </li>
+            `).join('');
+        }
+
+        // ══════════════════════════════════
+        // 任务控制
+        // ══════════════════════════════════
+
+        async function startProcessing() {
+            if (selectedFiles.length === 0) return;
+
+            // 切换 UI 状态
+            showSection('progress-section');
+
+            // 构建 FormData
+            const formData = new FormData();
+            selectedFiles.forEach(f => formData.append('files', f));
+
+            try {
+                const resp = await fetch('/api/tasks', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                // 防护：后端可能返回 HTML（如 500 错误页）
+                const contentType = resp.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const text = await resp.text();
+                    throw new Error(`服务器错误 (${resp.status}): ${text.slice(0, 200)}`);
+                }
+
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(data.error || `创建任务失败 (${resp.status})`);
+                }
+
+                currentTaskId = data.task_id;
+                connectSSE(currentTaskId);
+
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        async function cancelTask() {
+            if (!currentTaskId) return;
+
+            if (!confirm('确定要取消当前任务吗？')) return;
+
+            try {
+                await fetch(`/api/tasks/${currentTaskId}/cancel`, { method: 'POST' });
+                disconnectSSE();
+                alert('任务已取消');
+                resetAll();
+            } catch (e) {
+                console.error('取消失败:', e);
+            }
+        }
+
+        // ══════════════════════════════════
+        // SSE 实时进度
+        // ══════════════════════════════════
+
+        function connectSSE(taskId) {
+            eventSource = new EventSource(`/api/tasks/${taskId}/events`);
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateProgressUI(data);
+            };
+
+            eventSource.addEventListener('done', (event) => {
+                const data = JSON.parse(event.data);
+                onTaskDone(data);
+            });
+
+            eventSource.addEventListener('cancelled', () => {
+                alert('任务已取消');
+                resetAll();
+            });
+
+            eventSource.addEventListener('error', (event) => {
+                console.error('SSE 错误:', event);
+                // 如果连接断开，尝试重连（仅当任务仍在处理中时）
+                setTimeout(() => {
+                    if (currentTaskId && !eventSource || eventSource.readyState === EventSource.CLOSED) {
+                        connectSSE(taskId);
+                    }
+                }, 3000);
+            });
+        }
+
+        function disconnectSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+        }
+
+        function updateProgressUI(data) {
+            const total = data.total_files || 0;
+            const processed = data.processed_files || 0;
+            const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+            document.getElementById('progress-text').textContent =
+                `正在处理 ${data.current_filename || '...'}`;
+            document.getElementById('progress-percent').textContent = `${percent}%`;
+            document.getElementById('progress-bar-fill').style.width = `${percent}%`;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-processed').textContent = processed;
+            document.getElementById('stat-success').textContent = data.success_count || 0;
+            document.getElementById('stat-failed').textContent = data.failed_count || 0;
+            document.getElementById('current-filename').textContent =
+                data.current_filename || '—';
+
+            // 更新 PDF 类型构成统计
+            const textOnly = data.text_only || 0;
+            const scanOnly = data.scan_only || 0;
+            const mixed = data.mixed || 0;
+            const hasTypeStats = (textOnly + scanOnly + mixed) > 0;
+
+            const panel = document.getElementById('type-stats-panel');
+            if (hasTypeStats && processed > 0) {
+                panel.style.display = 'block';
+                document.getElementById('stat-text-only').textContent = textOnly;
+                document.getElementById('stat-scan-only').textContent = scanOnly;
+                document.getElementById('stat-mixed').textContent = mixed;
+            }
+
+            // 根据状态更新颜色
+            const fill = document.getElementById('progress-bar-fill');
+            fill.className = 'progress-bar-fill';
+            if (data.status === 'completed') fill.classList.add('done');
+            else if (data.status === 'failed') fill.classList.add('failed');
+        }
+
+        function onTaskDone(data) {
+            disconnectSSE();
+
+            if (data.status === 'completed') {
+                showResultSuccess(data);
+            } else {
+                showError(data.error_message || '处理过程中出现未知错误');
+            }
+        }
+
+        // ══════════════════════════════════
+        // UI 状态切换
+        // ══════════════════════════════════
+
+        function showSection(id) {
+            ['upload-section', 'progress-section', 'result-section'].forEach(sid => {
+                const el = document.getElementById(sid);
+                el.style.display = sid === id ? 'block' : 'none';
+            });
+        }
+
+        function showResultSuccess(data) {
+            showSection('result-section');
+            document.getElementById('result-success').style.display = 'block';
+            document.getElementById('result-error').style.display = 'none';
+
+            document.getElementById('result-total').textContent = data.total_files || 0;
+            document.getElementById('result-ok').textContent = data.success_count || 0;
+            document.getElementById('result-err').textContent = data.failed_count || 0;
+
+            // 显示 PDF 类型构成（结果区）
+            const textOnly = data.text_only || 0;
+            const scanOnly = data.scan_only || 0;
+            const mixed = data.mixed || 0;
+            if (textOnly + scanOnly + mixed > 0) {
+                const resPanel = document.getElementById('result-type-stats');
+                resPanel.style.display = 'block';
+                document.getElementById('res-text-only').textContent = textOnly;
+                document.getElementById('res-scan-only').textContent = scanOnly;
+                document.getElementById('res-mixed').textContent = mixed;
+            }
+
+            const dlLink = document.getElementById('download-link');
+            dlLink.href = `/api/tasks/${currentTaskId}/download`;
+        }
+
+        function showError(message) {
+            showSection('result-section');
+            document.getElementById('result-success').style.display = 'none';
+            document.getElementById('result-error').style.display = 'block';
+            document.getElementById('error-message').textContent = message;
+        }
+
+        function resetAll() {
+            disconnectSSE();
+            currentTaskId = null;
+            selectedFiles = [];
+            clearFiles();
+            showSection('upload-section');
+
+            // 重置进度条
+            document.getElementById('progress-bar-fill').style.width = '0%';
+            document.getElementById('progress-bar-fill').className = 'progress-bar-fill';
+            document.getElementById('progress-text').textContent = '准备中...';
+            document.getElementById('progress-percent').textContent = '0%';
+            ['total', 'processed', 'success', 'failed'].forEach(id => {
+                document.getElementById(`stat-${id}`).textContent = '0';
+            });
+            document.getElementById('current-filename').textContent = '—';
+
+            // 重置类型统计面板
+            document.getElementById('type-stats-panel').style.display = 'none';
+            document.getElementById('stat-text-only').textContent = '0';
+            document.getElementById('stat-scan-only').textContent = '0';
+            document.getElementById('stat-mixed').textContent = '0';
+            document.getElementById('result-type-stats').style.display = 'none';
+        }
+
+        // ══════════════════════════════════
+        // 工具函数
+        // ══════════════════════════════════
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+/*
+ * PDF Processor Web - 样式表
+ *
+ * 设计原则：
+ * 1. 干净现代 —— 不花哨，专注功能
+ * 2. 响应式 —— 手机/平板/桌面都能用
+ * 3. 清晰的状态反馈 —— 用户随时知道系统在干什么
+ */
+
+/* ─── 全局 & 重置 ─── */
+:root {
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --success: #059669;
+    --success-hover: #047857;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --warning: #d97706;
+
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ─── 布局容器 ─── */
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+/* ─── 头部 ─── */
+.header {
+    text-align: center;
+    padding: 32px 0 24px;
+}
+
+.header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-top: 4px;
+}
+
+/* ─── 卡片通用样式 ─── */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    margin-bottom: 20px;
+}
+
+/* ─── 上传区域 ─── */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    transition: border-color 0.2s, background-color 0.2s;
+    cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: var(--primary);
+    background: rgba(79, 70, 229, 0.04);
+}
+
+.drop-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+
+.drop-zone h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.drop-hint {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    margin-bottom: 16px;
+}
+
+/* ─── 文件列表 ─── */
+.file-list {
+    margin-top: 20px;
+}
+
+.file-list h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.file-items {
+    list-style: none;
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    margin-right: 10px;
+    white-space: nowrap;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.remove-btn:hover {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+/* ─── 按钮系统 ─── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 22px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    font-family: inherit;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-success {
+    background: var(--success);
+    color: #fff;
+}
+.btn-success:hover { background: var(--success-hover); }
+
+.btn-danger {
+    background: var(--danger);
+    color: #fff;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+}
+.btn-danger:hover { background: var(--danger-hover); }
+
+.btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+.btn-outline:hover {
+    border-color: var(--text-secondary);
+    color: var(--text);
+}
+
+.btn-large {
+    padding: 13px 32px;
+    font-size: 1rem;
+    border-radius: 10px;
+}
+
+.btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    justify-content: center;
+}
+
+/* ─── 进度区域 ─── */
+.progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.progress-header h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.progress-bar-wrapper {
+    margin-bottom: 20px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    margin-bottom: 8px;
+}
+
+.progress-info span:last-child {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.progress-bar-track {
+    height: 10px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary), #6366f1);
+    border-radius: 999px;
+    transition: width 0.35s ease;
+}
+
+.progress-bar-fill.done {
+    background: linear-gradient(90deg, var(--success), #10b981);
+}
+
+.progress-bar-fill.failed {
+    background: linear-gradient(90deg, var(--danger), #ef4444);
+}
+
+/* 状态详情网格 */
+.status-details {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    text-align: center;
+}
+
+.status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.status-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.stat-value.success { color: var(--primary); }
+.stat-value.ok { color: var(--success); }
+.stat-value.error { color: var(--danger); }
+
+.current-file {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.current-label { color: var(--text-secondary); }
+.current-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── 结果区域 ─── */
+.result-card {
+    text-align: center;
+}
+
+.result-icon {
+    font-size: 3.5rem;
+    margin-bottom: 12px;
+}
+
+.error-icon { color: var(--danger); }
+
+.result-card h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.result-summary p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.result-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.error-text {
+    color: var(--danger);
+    word-break: break-word;
+    margin-bottom: 18px;
+}
+
+/* ─── 页脚 ─── */
+.footer {
+    text-align: center;
+    padding: 24px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+/* ─── 动画效果（进度条脉冲） ─── */
+@keyframes pulse-stripes {
+    0%   { background-position: 0 0; }
+    100% { background-position: 30px 0; }
+}
+
+.progress-bar-fill {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255,255,255,0.15) 50%,
+        rgba(255,255,255,0.15) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 30px 30px;
+    animation: pulse-stripes 1s linear infinite;
+}
+
+.progress-bar-fill.done,
+.progress-bar-fill.failed {
+    animation: none;
+    background-image: none;
+}
+
+/* ─── PDF 类型统计面板（进度区） ─── */
+.type-stats-panel {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.type-stats-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+}
+
+.type-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.type-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.type-stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.type-stat-item .type-icon { font-size: 1.3rem; }
+.type-stat-item .type-name {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.type-stat-item .type-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* 三种类型的配色 */
+.type-text .type-count   { color: #059669; }   /* 绿色 - 纯文本 */
+.type-scan .type-count   { color: #dc2626; }   /* 红色 - 扫描件 */
+.type-mixed .type-count  { color: #d97706; }   /* 橙色 - 混合型 */
+
+.type-text:hover   { background: #f0fdf4; border-color: #86efac; }
+.type-scan:hover   { background: #fef2f2; border-color: #fca5a5; }
+.type-mixed:hover  { background: #fffbeb; border-color: #fcd34d; }
+
+/* ─── PDF 类型统计（结果区） ─── */
+.result-type-stats {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+}
+
+.type-stats-title-sm {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    text-align: left;
+}
+
+.type-badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.88rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+.type-badge strong {
+    font-weight: 700;
+    margin-left: 2px;
+}
+
+.badge-text  { background: linear-gradient(135deg, #059669, #10b981); }
+.badge-scan  { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.badge-mixed { background: linear-gradient(135deg, #d97706, #f59e0b); }
+
+/* ─── 响应式适配 ─── */
+@media (max-width: 520px) {
+    .container { padding: 16px 12px 36px; }
+    .header h1 { font-size: 1.4rem; }
+    .card { padding: 20px 16px; }
+    .drop-zone { padding: 28px 16px; }
+    .drop-icon { font-size: 2.4rem; }
+    .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .type-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    .type-stat-item { padding: 10px 6px 8px; }
+    .type-stat-item .type-icon { font-size: 1.1rem; }
+    .type-stat-item .type-count { font-size: 1.25rem; }
+    .type-badges { flex-direction: column; align-items: center; }
+    .btn-large { padding: 11px 24px; font-size: 0.93rem; }
+    .actions { flex-direction: column; }
+    .result-actions { flex-direction: column; }
+}
+
+/* ─── 滚动条美化 ─── */
+.file-items::-webkit-scrollbar { width: 6px; }
+.file-items::-webkit-scrollbar-track { background: transparent; }
+.file-items::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
