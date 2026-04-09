@@ -25,7 +25,7 @@ done
 echo ""
 echo "━━━ 初始化 PocketBase ━━━"
 
-pocketbase upsert "${PB_ADMIN_EMAIL:-admin@admin.com}" "${PB_ADMIN_PASSWORD:-adminadmin123}" 2>/dev/null \
+pocketbase superuser upsert "${PB_ADMIN_EMAIL:-admin@admin.com}" "${PB_ADMIN_PASSWORD:-adminadmin123}" 2>/dev/null \
   && echo "✅ 管理员账号已就绪" || echo "⚠️ 管理员账号可能需要手动设置"
 
 # 获取 token 并检查/创建 Collections
@@ -89,7 +89,7 @@ except: print('no')" 2>/dev/null)
             {\"name\":\"content\",\"type\":\"editor\"},
             {\"name\":\"error_message\",\"type\":\"text\"},
             {\"name\":\"pdf_file\",\"type\":\"file\"}
-          ]}' > /dev/null 2>&1
+          ]}" > /dev/null 2>&1
 
         echo "✅ 数据集合创建完成"
     else
@@ -103,13 +103,7 @@ fi
 echo ""
 echo "🚀 Starting Flask on port ${FLASK_PORT:-5000}..."
 cd /app
-FLASK_PORT="${FLASK_PORT:-5000}" python -c "
-import sys, os
-sys.path.insert(0, '.')
-os.chdir('.')
-from web.app import app
-app.run(host='0.0.0.0', port=int(os.getenv('FLASK_PORT', '5000')), threaded=True)
-:" &
+python /app/web/run_flask.py &
 
 # 等待 Flask（前台阻塞）
 FLASK_PID=$!
