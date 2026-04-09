@@ -62,7 +62,8 @@ except: print('no')" 2>/dev/null)
         fi
 
         # 创建 tasks（PB v0.36+ 使用 fields 参数）
-        curl -s "http://127.0.0.1:8090/api/collections" \
+        echo "  >>> Creating 'tasks' collection..."
+        TASKS_RESP=$(curl -s "http://127.0.0.1:8090/api/collections" \
           -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
           -d '{"name":"tasks","type":"base","fields":[
             {"name":"status","type":"text","required":true},
@@ -73,13 +74,28 @@ except: print('no')" 2>/dev/null)
             {"name":"current_filename","type":"text"},
             {"name":"error_message","type":"text"},
             {"name":"result_csv","type":"file"}
-          ]}' > /dev/null 2>&1
+          ]}' 2>&1)
 
-        TASKS_ID=$(curl -s "http://127.0.0.1:8090/api/collections/tasks" \
-          -H "Authorization: Bearer $TOKEN" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+        # 从创建响应中直接提取 ID（避免二次 GET 可能失败）
+        TASKS_ID=$(echo "$TASKS_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('id', d.get('Id', '')))
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)" 2>/dev/null)
+
+        if [ -z "$TASKS_ID" ] || [ "$TASKS_ID" = "ERROR" ]; then
+            echo "  ❌ 创建 tasks 失败，响应："
+            echo "$TASKS_RESP" | head -5
+            exit 1
+        fi
+        echo "  ✅ tasks 创建成功 (ID: $TASKS_ID)"
 
         # 创建 pdf_files
-        curl -s "http://127.0.0.1:8090/api/collections" \
+        echo "  >>> Creating 'pdf_files' collection..."
+        PDF_FILES_RESP=$(curl -s "http://127.0.0.1:8090/api/collections" \
           -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
           -d "{\"name\":\"pdf_files\",\"type\":\"base\",\"fields\":[
             {\"name\":\"task\",\"type\":\"relation\",\"required\":true,\"collectionId\":\"$TASKS_ID\",\"maxSelect\":1,\"cascadeDelete\":true},
@@ -89,9 +105,22 @@ except: print('no')" 2>/dev/null)
             {\"name\":\"content\",\"type\":\"editor\"},
             {\"name\":\"error_message\",\"type\":\"text\"},
             {\"name\":\"pdf_file\",\"type\":\"file\"}
-          ]}" > /dev/null 2>&1
+          ]}" 2>&1)
 
-        echo "✅ 数据集合创建完成"
+        PDF_FILES_CHECK=$(echo "$PDF_FILES_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print('ok' if d.get('id') or d.get('Id') else f'FAIL: {d}')
+except:
+    print('FAIL: invalid json')" 2>/dev/null)
+
+        if echo "$PDF_FILES_CHECK" | grep -q "^FAIL"; then
+            echo "  ❌ 创建 pdf_files 失败，响应："
+            echo "$PDF_FILES_RESP" | head -5
+            exit 1
+        fi
+        echo "  ✅ pdf_files 创建成功"
     else
         echo "✅ 数据集合已就绪"
     fi
