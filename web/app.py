@@ -28,6 +28,7 @@ import threading
 import tempfile
 from pathlib import Path
 from datetime import datetime
+from typing import Dict
 
 from flask import (
     Flask, render_template, request, jsonify,

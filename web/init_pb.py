@@ -134,6 +134,8 @@ def delete_collection(token, coll_id):
 
 
 def main():
+    import os
+    import subprocess
     email = os.environ.get("PB_ADMIN_EMAIL", DEFAULT_EMAIL)
     password = os.environ.get("PB_ADMIN_PASSWORD", DEFAULT_PASS)
 
@@ -148,6 +150,21 @@ def main():
     else:
         print("❌ PocketBase 启动超时")
         sys.exit(1)
+
+    # 先创建/更新管理员账号（通过子进程调用 pocketbase CLI）
+    # 首次启动 PB 时还没有任何管理员，必须先 upsert 才能认证
+    print("📋 初始化管理员账号...")
+    try:
+        result = subprocess.run(
+            ["pocketbase", "superuser", "upsert", email, password],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode == 0 or "already" in result.stderr.lower() or "successfully" in result.stdout.lower():
+            print(f"✅ 管理员账号已就绪 ({email})")
+        else:
+            print(f"⚠️ upsert: {result.stderr.strip() or result.stdout.strip()}")
+    except Exception as e:
+        print(f"⚠️ upsert 异常（可能已有账号）: {e}")
 
     # 获取 token
     time.sleep(1)
