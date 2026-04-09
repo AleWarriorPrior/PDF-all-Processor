@@ -1,11 +1,16 @@
-FROM python:3.12-slim
+# 固定使用 Debian Bookworm (12) 基础镜像，避免 Trixie 包名变更导致构建失败
+FROM python:3.12-slim-bookworm
 
 LABEL maintainer="PDF Processor Team"
 LABEL description="智能PDF批量处理工具 - Web版 (Flask + PocketBase)"
 
-# 安装系统依赖（PyMuPDF 需要）
+# 安装系统依赖（PyMuPDF 底层 MuPDF 引擎需要这些图形库）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    # OpenGL / Mesa 库 — PyMuPDF 渲染引擎依赖
+    libgl1-mesa-glx libgl1-mesa-dri \
+    # GTK/X11 运行时
+    libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    # 工具：下载解压 PocketBase 二进制文件
     curl unzip \
     && rm -rf /var/lib/apt/lists/*
 
