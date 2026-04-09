@@ -87,7 +87,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/AleWarriorPrior/PDF-Text-Extractor.git
+git clone https://github.com/AleWarriorPrior/PDF-all-Processor.git
 cd PDF-Text-Extractor
 
 # 2. 构建镜像（包含 PocketBase v0.36.x）
