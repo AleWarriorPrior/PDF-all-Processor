@@ -17,26 +17,44 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 下载 PocketBase
 ENV PB_VERSION=0.36.8
 RUN set -e; \
-    # 检测平台和架构（Docker 容器内 uname 行为可能因 shell 而异）
-    _os_name="$(uname -s)"; \
+    # 检测架构
     _arch_name="$(uname -m)"; \
-    case "$_os_name" in \
-        Linux)   pb_os="linux" ;; \
-        Darwin)  pb_os="darwin" ;; \
-        *)       echo "Unsupported OS: $_os_name"; exit 1 ;; \
-    esac; \
     case "$_arch_name" in \
-        x86_64|amd64) pb_arch="${pb_os}_amd64" ;; \
-        aarch64|arm64) pb_arch="${pb_os}_arm64" ;; \
+        x86_64|amd64) pb_arch="linux_amd64" ;; \
+        aarch64|arm64) pb_arch="linux_arm64" ;; \
         *) echo "Unsupported architecture: $_arch_name"; exit 1 ;; \
     esac; \
-    echo "Downloading PocketBase v${PB_VERSION} for ${pb_arch}..."; \
-    curl -fsSL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_${pb_arch}.zip" \
-         -o /tmp/pb.zip && \
-    unzip /tmp/pb.zip -o /usr/local/bin/ && \
+    _pb_url="https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_${pb_arch}.zip"; \
+    echo ">>> Downloading PocketBase v${PB_VERSION} (${pb_arch})..."; \
+    # 重试机制：GitHub 在国内/企业网络可能不稳定，最多重试 5 次
+    for i in 1 2 3 4 5; do \
+        echo ">>> Attempt $i of 5..."; \
+        if curl -fSL --connect-timeout 30 --max-time 300 "$_pb_url" -o /tmp/pb.zip; then \
+            _dl_ok=1; break; \
+        else \
+            echo ">>> Download failed, retrying in 5s..."; \
+            rm -f /tmp/pb.zip; sleep 5; \
+        fi; \
+    done; \
+    if [ "$_dl_ok" != "1" ]; then \
+        echo "ERROR: Failed to download PocketBase after 5 attempts"; \
+        exit 1; \
+    fi; \
+    # 验证下载文件不是空文件也不是 HTML 错误页
+    _fsize=$(stat -c%s /tmp/pb.zip 2>/dev/null || echo 0); \
+    if [ "$_fsize" -lt 10000 ]; then \
+        echo "ERROR: Downloaded file too small ($_fsize bytes), likely not a valid ZIP"; \
+        exit 1; \
+    fi; \
+    # 解压到目标目录（使用 -d 而不是 -o 避免参数歧义）
+    mkdir -p /usr/local/bin; \
+    unzip -o /tmp/pb.zip -d /tmp/pb_extract && \
+    mv /tmp/pb_extract/pocketbase /usr/local/bin/pocketbase || \
+    cp /tmp/pb_extract/*/pocketbase /usr/local/bin/pocketbase 2>/dev/null || true; \
     chmod +x /usr/local/bin/pocketbase && \
-    rm /tmp/pb.zip && \
-    echo "PocketBase installed: $(/usr/local/bin/pocketbase --version)"
+    rm -rf /tmp/pb.zip /tmp/pb_extract && \
+    echo ">>> PocketBase installed successfully:" && \
+    /usr/local/bin/pocketbase --version
 
 WORKDIR /app
 
