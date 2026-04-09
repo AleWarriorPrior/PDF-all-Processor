@@ -3,7 +3,7 @@ set -e
 
 # ─── 启动 PocketBase ───
 echo "🚀 Starting PocketBase..."
-./pocketbase serve --http 0.0.0.0:8090 &
+pocketbase serve --http 0.0.0.0:8090 &
 PB_PID=$!
 
 # 等待 PocketBase 就绪
@@ -25,7 +25,7 @@ done
 echo ""
 echo "━━━ 初始化 PocketBase ━━━"
 
-./pocketbase upsert "${PB_ADMIN_EMAIL:-admin@admin.com}" "${PB_ADMIN_PASSWORD:-adminadmin123}" 2>/dev/null \
+pocketbase upsert "${PB_ADMIN_EMAIL:-admin@admin.com}" "${PB_ADMIN_PASSWORD:-adminadmin123}" 2>/dev/null \
   && echo "✅ 管理员账号已就绪" || echo "⚠️ 管理员账号可能需要手动设置"
 
 # 获取 token 并检查/创建 Collections
