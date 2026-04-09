@@ -16,17 +16,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 下载 PocketBase
 ENV PB_VERSION=0.36.8
-RUN arch=$(uname - | sed 's/.*Darwin/darwin/' | sed 's/.*Linux/linux/') && \
-    case $(uname -m) in \
-        aarch64|arm64) pb_arch="${arch}_arm64" ;; \
-        x86_64|amd64) pb_arch="${arch}_amd64" ;; \
-        *) echo "Unsupported architecture" && exit 1 ;; \
-    esac && \
+RUN set -e; \
+    # 检测平台和架构（Docker 容器内 uname 行为可能因 shell 而异）
+    _os_name="$(uname -s)"; \
+    _arch_name="$(uname -m)"; \
+    case "$_os_name" in \
+        Linux)   pb_os="linux" ;; \
+        Darwin)  pb_os="darwin" ;; \
+        *)       echo "Unsupported OS: $_os_name"; exit 1 ;; \
+    esac; \
+    case "$_arch_name" in \
+        x86_64|amd64) pb_arch="${pb_os}_amd64" ;; \
+        aarch64|arm64) pb_arch="${pb_os}_arm64" ;; \
+        *) echo "Unsupported architecture: $_arch_name"; exit 1 ;; \
+    esac; \
+    echo "Downloading PocketBase v${PB_VERSION} for ${pb_arch}..."; \
     curl -fsSL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_${pb_arch}.zip" \
          -o /tmp/pb.zip && \
     unzip /tmp/pb.zip -o /usr/local/bin/ && \
     chmod +x /usr/local/bin/pocketbase && \
-    rm /tmp/pb.zip
+    rm /tmp/pb.zip && \
+    echo "PocketBase installed: $(/usr/local/bin/pocketbase --version)"
 
 WORKDIR /app
 
