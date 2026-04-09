@@ -60,7 +60,24 @@ WORKDIR /app
 
 # 先复制依赖文件（利用Docker缓存层）
 COPY requirements.txt .
-RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+# pip 安装 Python 依赖
+# 关键参数说明：
+#   --timeout 600        单个下载最大等待 10 分钟（默认太短，大包容易超时）
+#   --retries 5          每个包失败后自动重试 5 次
+#   --exists-action i    目标文件存在时忽略（配合重试使用）
+RUN pip install --no-cache-dir \
+    --timeout 600 \
+    --retries 5 \
+    --exists-action i \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    -r requirements.txt || \
+    { echo ">>> 清华镜像失败，尝试阿里云镜像..."; \
+      pip install --no-cache-dir \
+        --timeout 600 \
+        --retries 5 \
+        --exists-action i \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+        -r requirements.txt; }
 
 # 复制核心处理模块
 COPY pdf_processor.py .
