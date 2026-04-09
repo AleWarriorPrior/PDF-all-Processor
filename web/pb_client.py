@@ -208,7 +208,7 @@ class PocketBaseClient:
         url = f"{self.base_url}/api/collections/{collection}/records/{record_id}"
 
         files = {field_name: (filename, file_obj, content_type)}
-        resp = self._session.post(url, files=files, timeout=self._timeout)
+        resp = self._session.patch(url, files=files, timeout=self._timeout)
         resp.raise_for_status()
         return resp.json()
 

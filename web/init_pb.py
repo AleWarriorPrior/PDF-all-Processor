@@ -128,6 +128,29 @@ def create_pdf_files_collection(token, tasks_id):
     print("  ✅ pdf_files created")
 
 
+def set_collection_max_size(token, coll_name, max_size_mb=200):
+    """设置 Collection 的文件上传大小限制（默认 200MB）"""
+    # 先获取 collection ID
+    resp = api_request(f"/api/collections/{coll_name}", token=token, silent=True)
+    if not resp or not resp.get("id"):
+        return
+
+    coll_id = resp["id"]
+    max_size_bytes = max_size_mb * 1024 * 1024
+    print(f"  >>> Setting {coll_name} file max size to {max_size_mb}MB...")
+
+    result = api_request(
+        f"/api/collections/{coll_id}",
+        method="PATCH",
+        data={"options": {"maxSize": max_size_bytes}},
+        token=token,
+    )
+    if result and "error" not in result:
+        print(f"  ✅ {coll_name} maxSize set to {max_size_mb}MB")
+    else:
+        print(f"  ⚠️ Failed to set {coll_name} maxSize: {result}")
+
+
 def delete_collection(token, coll_id):
     """删除数据集合"""
     api_request(f"/api/collections/{coll_id}", method="DELETE", token=token, silent=True)
@@ -196,6 +219,11 @@ def main():
 
     # 创建 pdf_files
     create_pdf_files_collection(token, tasks_id)
+
+    # 设置文件上传大小限制（PB 默认 5MB，对 PDF 来说太小了）
+    print("📐 配置文件大小限制...")
+    set_collection_max_size(token, "tasks", max_size_mb=200)
+    set_collection_max_size(token, "pdf_files", max_size_mb=200)
 
     print("✅ 数据集合初始化完成")
 
