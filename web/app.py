@@ -563,6 +563,8 @@ def _process_task_background(task_id: str, file_paths: list):
             df = pd.DataFrame(results)
             csv_path = str(app.config["UPLOAD_FOLDER"] / task_id / "result.csv")
             export_df = df[["unique_id", "source_filename", "content", "pdf_type"]].copy()
+            # 新增 filename 列：source_filename 去掉 .pdf 后缀
+            export_df["filename"] = export_df["source_filename"].str.replace(r"\.pdf$", "", regex=True)
             if "error" in df.columns:
                 export_df["error"] = df["error"]
             export_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
