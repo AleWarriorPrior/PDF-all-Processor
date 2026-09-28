@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# 本地运行产物
+logs/
+test_pdfs/
+web/uploads/
+/*.csv
+
+# 本地环境配置（含凭据，勿提交）
+.env
+
+# 工具本地状态 / 系统
+.omc/
+.DS_Store

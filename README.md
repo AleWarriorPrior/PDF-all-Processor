@@ -88,7 +88,7 @@
 ```bash
 # 1. 克隆项目
 git clone https://github.com/AleWarriorPrior/PDF-all-Processor.git
-cd PDF-Text-Extractor
+cd PDF-all-Processor
 
 # 2. 构建镜像（包含 PocketBase v0.36.x）
 docker build -t pdf-text-extractor .
@@ -202,8 +202,8 @@ Docker entrypoint 脚本 (`docker-entrypoint.sh`) 会在容器首次启动时自
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/AleWarriorPrior/PDF-Text-Extractor.git
-cd PDF-Text-Extractor
+git clone https://github.com/AleWarriorPrior/PDF-all-Processor.git
+cd PDF-all-Processor
 
 # 2. 创建虚拟环境
 python -m venv venv
@@ -292,8 +292,8 @@ unique_id,source_filename,content,pdf_type
 | `FLASK_PORT` | Flask 监听端口 | `5000` | 可选 |
 | `FLASK_DEBUG` | Flask 调试模式 | `0` | 可选 |
 | `MAX_CONCURRENT_TASKS` | 并发任务数 | `3` | 可选 |
-| `POLL_INTERVAL` | API 轮询间隔(秒) | `2` | 可选 |
-| `TASK_TIMEOUT` | 单任务超时时间(秒) | `300` | 可选 |
+| `POLL_INTERVAL` | API 轮询间隔(秒) | `5` | 可选 |
+| `TASK_TIMEOUT` | 单任务超时时间(秒) | `600` | 可选 |
 
 ### 获取 MinerU Token
 
