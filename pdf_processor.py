@@ -234,7 +234,7 @@ class PDFProcessor:
                 logger.info(f"\n🖼️ 处理 {len(scan_mixed_files)} 个扫描件/混合PDF (使用MinerU OCR)...")
 
                 if not self.mineru_client:
-                    self.mineru_client = MinerUClient(api_token=self.api_token, verbose=self.verbose)
+                    self.mineru_client = MinerUClient(api_token=self.api_token, max_concurrent=self.max_workers, verbose=self.verbose)
 
                 # 包装一个完整的async流程（含cleanup）
                 async def _run_ocr_with_cleanup():
@@ -311,15 +311,14 @@ class PDFProcessor:
     def _extract_text_with_pymupdf(self, file_path: str) -> str:
         """使用PyMuPDF提取纯文本PDF的内容（速度快、准确率高、免费）"""
         import fitz
-        doc = fitz.open(file_path)
         all_text = []
 
-        for page_num, page in enumerate(doc):
-            text = page.get_text("text")
-            if text.strip():
-                all_text.append(f"[第{page_num + 1}页]\n{text}")
+        with fitz.open(file_path) as doc:
+            for page_num, page in enumerate(doc):
+                text = page.get_text("text")
+                if text.strip():
+                    all_text.append(f"[第{page_num + 1}页]\n{text}")
 
-        doc.close()
         full_text = "\n\n---\n\n".join(all_text)
         cleaned_text = self._clean_extracted_text(full_text)
         return cleaned_text

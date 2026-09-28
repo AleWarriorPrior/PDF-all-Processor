@@ -82,16 +82,16 @@ class MinerUClient:
     AGENT_FILE_UPLOAD_URL = f"{BASE_URL}/api/v1/agent/parse/file"
     AGENT_STATUS_URL = f"{BASE_URL}/api/v1/agent/parse/{{task_id}}"
     
-    # 配置参数
+    # 配置参数（支持环境变量覆盖：POLL_INTERVAL / TASK_TIMEOUT，与 README 文档一致）
     MAX_RETRIES = 3                    # 最大重试次数
-    POLL_INTERVAL = 5                  # 轮询间隔（秒）
-    TASK_TIMEOUT = 600                 # 单任务超时时间（秒）— 大文件OCR可能需要10分钟
+    POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "5"))      # 轮询间隔（秒）
+    TASK_TIMEOUT = int(os.getenv("TASK_TIMEOUT", "600"))      # 单任务超时时间（秒）— 大文件OCR可能需要10分钟
     UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024  # 上传分块大小 (8MB)
     
     def __init__(self, 
                  api_token: Optional[str] = None,
                  prefer_api_type: MinerUAPIType = MinerUAPIType.PRECISION,
-                 max_concurrent: int = 3,
+                 max_concurrent: Optional[int] = None,
                  verbose: bool = False):
         """
         初始化MinerU客户端
@@ -99,14 +99,16 @@ class MinerUClient:
         Args:
             api_token: MinerU API Token（可选，不提供则使用免费Agent API）
             prefer_api_type: 优选的API类型
-            max_concurrent: 最大并发任务数
+            max_concurrent: 最大并发任务数（默认读取环境变量 MAX_CONCURRENT_TASKS，缺省 3）
             verbose: 是否输出详细调试日志
         """
         self.api_token = api_token or os.getenv("MINERU_API_TOKEN")
         self.prefer_api_type = prefer_api_type
-        self.max_concurrent = max_concurrent
+        # 未显式指定时读取 MAX_CONCURRENT_TASKS 环境变量（缺省 3）
+        self.max_concurrent = max_concurrent if max_concurrent is not None \
+            else int(os.getenv("MAX_CONCURRENT_TASKS", "3"))
         self.verbose_debug = verbose
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._semaphore = asyncio.Semaphore(self.max_concurrent)
         
         # 确定可用的API模式
         if self.api_token and prefer_api_type == MinerUAPIType.PRECISION:

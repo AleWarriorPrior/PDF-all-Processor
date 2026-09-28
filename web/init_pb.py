@@ -4,12 +4,14 @@ PocketBase 自动初始化脚本（容器启动时由 docker-entrypoint.sh 调�
 功能：创建管理员账号、检查/创建 tasks & pdf_files 数据集合
 """
 import sys
+import os
 import json
 import time
 import urllib.request
 import urllib.error
 
-PB_URL = "http://127.0.0.1:8090"
+# 支持 PB_URL 环境变量覆盖（与 web/pb_client.py 保持一致）
+PB_URL = os.getenv("PB_URL", "http://127.0.0.1:8090")
 DEFAULT_EMAIL = "admin@admin.com"
 DEFAULT_PASS = "adminadmin123"
 
