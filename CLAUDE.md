@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Web mode**: Flask + PocketBase — browser upload → background processing → SSE progress → CSV download
 - **CLI mode**: `pdf_processor.py` standalone — no PocketBase/Flask dependency at all
 
-Both share the same core pipeline: **detect PDF type → route to the right extractor → CSV output**. Comments, logs, and README are in Chinese — match that style.
+Both share the same core pipeline: **detect PDF type → route to the right extractor → CSV output**. Comments and logs are in Chinese — match that style. READMEs are bilingual and must be updated together: `README.md` (English) and `README.zh-CN.md` (简体中文).
 
 ## Commands
 

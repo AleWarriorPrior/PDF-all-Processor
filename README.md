@@ -1,367 +1,340 @@
-# 📄 PDF Text Extractor — 智能批量 PDF 文本提取工具
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## 🎯 项目简介
+# 📄 PDF-all-Processor — Intelligent Batch PDF Text Extraction
 
-一个智能的 PDF 批量处理工具（Web 版），能够：
+## 🎯 Overview
 
-- **自动识别 PDF 类型**：纯文本、扫描件、混合型 —— 三种策略各取所长
-- **智能选择提取方案**：纯文本用 PyMuPDF 直接读，扫描件走 MinerU OCR
-- **Web 端操作**：浏览器拖拽上传 → 实时进度查看 → 一键下载 CSV
-- **任务持久化**：基于 PocketBase，断电/重启不丢任务记录
+An intelligent batch PDF processing tool (Web + CLI) that:
 
-### 为什么需要这个工具？
+- **Auto-identifies PDF type**: text-only, scanned, or mixed — each handled by the strategy that fits best
+- **Smart extraction routing**: text PDFs are read directly with PyMuPDF; scanned files go through MinerU OCR
+- **Web UI**: drag & drop upload → live progress → one-click CSV download
+- **Persistent tasks**: backed by PocketBase — task records survive restarts
 
-| 场景 | 传统方案 | 本工具 |
-|------|---------|--------|
-| 纯文本 PDF | 用 OCR → **错误率高、速度慢** | PyMuPDF 直接提取 ✅ **快速准确** |
-| 扫描件 PDF | 直接读文字 → **读不到内容** | MinerU OCR ✅ **高质量识别** |
-| 混合型 PDF | 统一方案 → **总有一方出问题** | 智能分流处理 ✅ **各取所长** |
+### Why this tool?
+
+| Scenario | Traditional approach | This tool |
+|----------|---------------------|-----------|
+| Text-only PDF | OCR everything → **slow, error-prone** | PyMuPDF direct read ✅ **fast & exact** |
+| Scanned PDF | Read text layer → **finds nothing** | MinerU OCR ✅ **high-quality recognition** |
+| Mixed PDF | One strategy for all → **something always breaks** | Smart routing ✅ **best of both** |
 
 ---
 
-## 🏗️ 技术架构
+## 🏗️ Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                         浏览器 (前端)                              │
+│                         Browser (frontend)                       │
 │   ┌─────────────────────────────────────────────────────────┐    │
-│   │  上传面板 │ 进度看板(含类型分布) │ 结果展示 & CSV 下载     │    │
+│   │  Upload panel │ Progress board (type stats) │ CSV download │  │
 │   └──────────────────────┬──────────────────────────────────┘    │
 └─────────────────────────│───────────────────────────────────────┘
                           │ HTTP / SSE
                           ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                    Flask Web 服务 (端口 5000)                     │
-│                                                                  │
-│   ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐    │
-│   │  文件上传 API │  │ SSE 实时推送  │  │  CSV 下载 / 取消    │    │
-│   └──────┬───────┘  └──────┬───────┘  └────────▲───────────┘    │
-│          │                 │                     │               │
-│          └────────┬────────┘                     │               │
-│                   ▼                              │               │
-│          ┌─────────────────────┐                │               │
-│          │  后台处理线程池       │────────────────┘               │
-│          │  类型检测 → 提取 → CSV │                               │
-│          └──────────┬──────────┘                                │
-└─────────────────────│───────────────────────────────────────────┘
-                      │ 读写
+│                    Flask web service (port 5000)                  │
+│   ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐     │
+│   │ Upload API   │  │ SSE push     │  │ CSV download/cancel│     │
+│   └──────┬───────┘  └──────┬───────┘  └────────▲───────────┘     │
+│          └────────┬────────┘                   │                 │
+│                   ▼                            │                 │
+│          ┌─────────────────────┐               │                 │
+│          │ Background workers  │───────────────┘                 │
+│          │ detect → extract → CSV                                │
+│          └──────────┬──────────┘                                  │
+└─────────────────────│─────────────────────────────────────────────┘
+                      │ read/write
                       ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│              PocketBase (端口 8090) — 数据 & 文件存储             │
-│                                                                  │
-│   ┌─────────────────────┐      ┌──────────────────────────┐     │
-│   │  tasks 集合         │ 1∶N │  pdf_files 集合           │     │
-│   │  · status           │─────│· task (relation)          │     │
-│   │  · total_files      │      │· pdf_file (文件字段)       │     │
-│   │  · result_csv (文件) │      │· filename / content       │     │
-│   │  · progress ...     │      │· pdf_type                 │     │
-│   └─────────────────────┘      └──────────────────────────┘     │
+│            PocketBase (port 8090) — data & file storage           │
+│   ┌─────────────────────┐      ┌──────────────────────────┐      │
+│   │ tasks collection    │ 1:N  │ pdf_files collection     │      │
+│   │ · status            │──────│· task (relation)         │      │
+│   │ · total_files       │      │· pdf_file (file field)   │      │
+│   │ · result_csv (file) │      │· filename / content      │      │
+│   │ · progress ...      │      │· pdf_type                │      │
+│   └─────────────────────┘      └──────────────────────────┘      │
 └──────────────────────────────────────────────────────────────────┘
-                      │ (仅扫描件/混合型)
+                      │ (scanned/mixed only)
                       ▼
 ┌──────────────────────────────────────┐
-│        MinerU API (外部服务)          │
-│   AI/OCR 公式识别 / 表格识别         │
+│         MinerU API (external)        │
+│   AI OCR / formula / table parsing   │
 └──────────────────────────────────────┘
 ```
 
-### 核心模块
+### Core modules
 
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| Web 入口 | `web/app.py` | Flask 路由、SSE 推送、后台任务编排 |
-| PB 客户端 | `web/pb_client.py` | PocketBase 认证、CRUD、文件上传下载 |
-| 前端页面 | `web/templates/index.html` | 上传界面 + 实时进度 + 类型分布展示 |
-| 样式表 | `web/static/style.css` | 响应式布局、类型统计卡片样式 |
-| 类型检测 | `pdf_detector.py` | 分析每页文本/图像占比，判断 PDF 类型 |
-| 文本提取 | `pdf_processor.py` | PyMuPDF 本地提取 + MinerU OCR 调度 |
-| OCR 客户端 | `mineru_client.py` | MinerU 异步 API 封装 |
+| Module | File | Responsibility |
+|--------|------|----------------|
+| Web entry | `web/app.py` | Flask routes, SSE push, background task orchestration |
+| PB client | `web/pb_client.py` | PocketBase auth, CRUD, file upload/download |
+| PB init | `web/init_pb.py` | Auto-creates admin account + `tasks`/`pdf_files` collections (honors `PB_URL` env) |
+| Flask launcher | `web/run_flask.py` | Container-only Flask bootstrap |
+| Frontend | `web/templates/index.html` | Upload UI + live progress + type stats |
+| Stylesheet | `web/static/style.css` | Responsive layout, type stat cards |
+| Type detection | `pdf_detector.py` | Per-page font presence + text density + significant image coverage (filters logos/watermarks) |
+| Text extraction | `pdf_processor.py` | PyMuPDF local extraction + MinerU OCR dispatch |
+| OCR client | `mineru_client.py` | MinerU async API wrapper (Precision/Agent auto-select) |
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick start
 
-### 方式一：Docker 一键部署（推荐生产环境）
+### Option 1: Docker one-command deploy (recommended)
 
-> Docker 镜像内置 PocketBase + Flask，启动即可使用。
+> The image bundles PocketBase + Flask and initializes everything on first boot.
 
 ```bash
-# 1. 克隆项目
+# 1. Clone
 git clone https://github.com/AleWarriorPrior/PDF-all-Processor.git
 cd PDF-all-Processor
 
-# 2. 构建镜像（包含 PocketBase v0.36.x）
-docker build -t pdf-text-extractor .
+# 2. Build image (bundles PocketBase v0.36.x)
+docker build -t pdf-all-processor .
 
-# 3. 运行容器
+# 3. Run
 docker run -d \
   --name pdf-extractor \
   -p 5000:5000 \
   -p 8090:8090 \
   -e MINERU_API_TOKEN=your_token_here \
   -v pdf-extractor-data:/pb_data \
-  pdf-text-extractor
+  pdf-all-processor
 
-# 4. 打开浏览器访问
+# 4. Open
 open http://localhost:5000
 ```
 
-**端口说明：**
+**Ports:**
 
-| 端口 | 服务 | 用途 |
-|------|------|------|
-| **5000** | Flask | Web 前端 + API |
-| **8090** | PocketBase | 数据库 + 文件存储 + 管理后台 |
+| Port | Service | Purpose |
+|------|---------|---------|
+| **5000** | Flask | Web frontend + API |
+| **8090** | PocketBase | Database + file storage + admin UI |
 
-> 💡 PocketBase 管理后台：`http://<host>:8090/_/` （默认账号 `admin@admin.com` / `adminadmin123`）
+> 💡 PocketBase admin UI: `http://<host>:8090/_/` (default account `admin@admin.com` / `adminadmin123`)
 
-### 平台兼容性
+**Platform compatibility:** Ubuntu/Debian, CentOS/RHEL/Fedora, macOS (Docker Desktop/OrbStack), Windows 10/11 (WSL2). The repo enforces LF line endings via `.gitattributes`, so cloned sources build cleanly everywhere.
 
-| 宿主机系统 | 是否支持 | 说明 |
-|-----------|---------|------|
-| **Ubuntu / Debian** | ✅ | 原生支持，`docker build && docker run` 直接运行 |
-| **CentOS / RHEL / Fedora** | ✅ | 同上，容器内为 Debian，不受主机发行版影响 |
-| **macOS** (Intel / Apple Silicon) | ✅ | 需要 [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
-| **Windows 10/11** | ✅ | 需要安装 [Docker Desktop (WSL2)](https://docs.docker.com/desktop/setup/install/windows-install/) |
+### Option 2: Local development
 
-> **Windows 用户注意：** 项目已配置 `.gitattributes` 强制 LF 换行，`git clone` 后直接构建即可。如果遇到脚本执行错误（`\r: No such file`），请确保使用 Git Bash 或 WSL2 终端执行 docker 命令。
-
-### 方式二：本地开发运行
-
-#### 第一步：启动 PocketBase
-
-PocketBase 是本项目的**必需依赖**——用于存储任务记录、上传的 PDF 文件和生成的 CSV 结果。
+#### Step 1 — Start PocketBase (required for web mode)
 
 ```bash
-# 下载 PocketBase（根据你的系统选择）
-
-# macOS (Apple Silicon):
-curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_darwin_arm64.zip -o pb.zip
-
-# macOS (Intel):
-curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_darwin_amd64.zip -o pb.zip
-
-# Linux (x86_64):
-curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_linux_amd64.zip -o pb.zip
-
-# 解压并启动
-unzip pb.zip && ./pocketbase serve
+# Download PocketBase v0.36.8 for your platform (see README assets), then:
+unzip pb.zip && ./pocketbase serve        # listens on http://127.0.0.1:8090
+# First run: create the admin account (defaults: admin@admin.com / adminadmin123)
 ```
 
-> 启动后 PocketBase 运行在 `http://127.0.0.1:8090`
->
-> 首次启动会引导创建管理员账号。建议使用默认：
-> - 邮箱：`admin@admin.com`
-> - 密码：`adminadmin123`
-
-#### 第二步：初始化数据集合
-
-PocketBase 首次启动后需要创建两个数据集合（`tasks` 和 `pdf_files`）。
-
-**方式 A：通过管理后台手动创建**
-1. 打开 `http://127.0.0.1:8090/_/` 登录
-2. 左侧菜单 → **Collections** → 创建以下两个集合：
-
-**tasks 集合字段：**
-
-| 字段名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| status | text | ✅ | 任务状态：pending / processing / completed / failed |
-| total_files | number(int) | ✅ | 总文件数 |
-| processed_files | number(int) | ❌ | 已处理数 |
-| success_count | number(int) | ❌ | 成功数 |
-| failed_count | number(int) | ❌ | 失败数 |
-| current_filename | text | ❌ | 当前正在处理的文件名 |
-| error_message | text | ❌ | 错误信息 |
-| result_csv | file | ❌ | 生成的 CSV 结果文件 |
-
-**pdf_files 集合字段：**
-
-| 字段名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| task | relation(tasks) | ✅ | 关联的任务（cascadeDelete） |
-| filename | text | ✅ | 原始文件名 |
-| status | text | ❌ | 处理状态 |
-| pdf_type | text | ❌ | 检测结果：text_only / scan_only / mixed |
-| content | editor | ❌ | 提取出的文本内容 |
-| error_message | text | ❌ | 错误信息 |
-| pdf_file | file | ❌ | 上传的 PDF 原始文件 |
-
-> ⚠️ **注意**：创建 `task` relation 字段时，必须指定目标 collectionId 为 `tasks` 集合的实际 ID。
-
-**方式 B：Docker 部署时自动初始化**
-
-Docker entrypoint 脚本 (`docker-entrypoint.sh`) 会在容器首次启动时自动完成：
-1. 管理员账号创建（或 upsert）
-2. `tasks` 和 `pdf_files` 数据集合的创建与字段校验
-3. 不完整旧集合的清理与重建
-
-无需手动操作。
-
-#### 第三步：配置并启动 Flask
+#### Step 2 — Initialize collections
 
 ```bash
-# 1. 克隆项目
+python web/init_pb.py       # idempotent; uses PB_URL env (default 127.0.0.1:8090)
+```
+
+This creates the `tasks` and `pdf_files` collections with all fields and sets the file-size limit to 200MB. You can also create them by hand in the PB admin UI (field list below).
+
+<details>
+<summary>Collection schemas (manual setup)</summary>
+
+**tasks**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| status | text | ✅ | pending / processing / completed / failed / cancelled |
+| total_files | number(int) | ✅ | |
+| processed_files | number(int) | ❌ | |
+| success_count | number(int) | ❌ | |
+| failed_count | number(int) | ❌ | |
+| current_filename | text | ❌ | |
+| error_message | text | ❌ | |
+| result_csv | file | ❌ | generated CSV result |
+
+**pdf_files**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| task | relation(tasks) | ✅ | cascadeDelete |
+| filename | text | ✅ | original filename |
+| status | text | ❌ | |
+| pdf_type | text | ❌ | text_only / scan_only / mixed |
+| content | editor | ❌ | extracted text |
+| error_message | text | ❌ | |
+| pdf_file | file | ❌ | original PDF |
+
+</details>
+
+#### Step 3 — Configure and run Flask
+
+```bash
+# 1. Clone
 git clone https://github.com/AleWarriorPrior/PDF-all-Processor.git
 cd PDF-all-Processor
 
-# 2. 创建虚拟环境
+# 2. Virtual environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 
-# 3. 安装依赖
+# 3. Dependencies
 pip install -r requirements.txt
 
-# 4. 配置环境变量（可选）
+# 4. Configuration
 cp .env.example .env
-# 编辑 .env，填入你的 MinerU Token（扫描件 OCR 需要）
+# edit .env — set your MinerU token (needed only for scanned files)
 
-# 5. 启动 Flask
-export FLASK_PORT=5002        # 默认 5000，被占用时可改
+# 5. Start
+export FLASK_PORT=5002        # optional; defaults to 5000
 python web/app.py
-
-# 或使用 nohup 后台运行
-# nohup env FLASK_PORT=5002 python web/app.py &
 ```
 
-启动成功后会看到：
+### Option 3: CLI mode (no web UI)
 
-```
-============================================================
-  📄 PDF Processor Web Service
-============================================================
-  URL:     http://127.0.0.1:5002
-  Debug:   False
-  PocketBase: http://127.0.0.1:8090
-============================================================
-```
-
-浏览器打开对应地址即可使用。
-
-### 方式三：CLI 命令行模式（无 Web 界面）
-
-如果不需要 Web UI，也可以直接用命令行处理本地 PDF 文件：
+Bypasses PocketBase and Flask entirely:
 
 ```bash
 python pdf_processor.py --input ./your_pdf_folder -o ./output/result.csv
 ```
 
-详见下方「CLI 使用指南」。
+See the [CLI guide](#-cli-usage-no-web-ui) below.
 
 ---
 
-## 📖 Web 使用指南
-
-### 基本流程
+## 📖 Web usage
 
 ```
-打开页面 → 拖拽/选择 PDF 文件 → 点击「开始处理」
-→ 实时查看进度（含文档类型分布统计） → 处理完成 → 下载 CSV
+Open page → drop PDFs → "Start" → watch live progress (with type breakdown)
+→ done → download CSV
 ```
 
-### 页面功能说明
+| Area | Function |
+|------|----------|
+| **Upload zone** | Multi-select & drag-drop, up to 200MB per file |
+| **Progress panel** | SSE live updates: processed/success/fail counters, current file |
+| **📊 Type breakdown** | Three live cards: text-only (green), scanned (red), mixed (orange) |
+| **Result area** | Summary + colored type badges + CSV download |
+| **Cancel button** | Aborts a running task anytime |
 
-| 区域 | 功能 |
-|------|------|
-| **上传区域** | 支持多选、拖拽上传，单文件最大 200MB |
-| **进度面板** | SSE 实时推送：已处理/成功/失败计数、当前文件名 |
-| **📊 类型分布** | 三栏卡片实时显示纯文本(绿)、扫描件(红)、混合型(橙)数量 |
-| **结果区** | 处理完成后显示汇总 + 彩色类型徽章 + CSV 下载按钮 |
-| **取消按钮** | 可随时中止正在进行的任务 |
+### API quick reference
 
-### 输出示例（CSV 格式）
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/tasks` | multipart upload (`files`), creates task, starts processing → `{task_id}` |
+| `GET /api/tasks/<id>/status` | Current progress & counters |
+| `GET /api/tasks/<id>/events` | SSE stream (`message` / `done` / `cancelled` / `error`) |
+| `GET /api/tasks/<id>/download` | Download result CSV |
+| `POST /api/tasks/<id>/cancel` | Cancel a running task |
+| `GET /health` | `{"status":"ok","pocketbase":"connected"}` |
+
+### CSV output
+
+Web mode columns: `unique_id, source_filename, content, pdf_type, filename` (+ `error` only when failures occurred). CLI mode columns: `unique_id, source_filename, content, pdf_type, error`. `filename` is `source_filename` without the `.pdf` suffix. Files are written `utf-8-sig` so Excel renders Chinese correctly.
 
 ```csv
-unique_id,source_filename,content,pdf_type
-"550e8400-e29b...","合同_2024.pdf","采购合同\n甲方：XX公司\n...",text_only
-"a1b2c3d4-e5f6...","发票_扫描件.pdf","发票号码: 12345678\n金额: ¥10,000",scan_only
+unique_id,source_filename,content,pdf_type,filename
+"550e8400-e29b...","contract_2024.pdf","Purchase contract
+Party A: ...",text_only,contract_2024
+"a1b2c3d4-e5f6...","receipt_scan.pdf","Receipt No.: 12345678
+Amount: ...",scan_only,receipt_scan
 ```
 
 ---
 
-## 🔧 配置说明
+## 🔧 Configuration
 
-### 环境变量 (.env)
+All settings live in `.env` (see `.env.example`) or process environment:
 
-| 变量名 | 说明 | 默认值 | 是否必填 |
-|--------|------|--------|----------|
-| **PB_URL** | PocketBase 服务地址 | `http://127.0.0.1:8090` | 推荐 |
-| **PB_ADMIN_EMAIL** | PB 管理员邮箱 | `admin@admin.com` | PB 默认 |
-| **PB_ADMIN_PASSWORD** | PB 管理员密码 | `adminadmin123` | PB 默认 |
-| `MINERU_API_TOKEN` | MinerU API Token | 无 | 可选（免费 API 无需 Token） |
-| `FLASK_PORT` | Flask 监听端口 | `5000` | 可选 |
-| `FLASK_DEBUG` | Flask 调试模式 | `0` | 可选 |
-| `MAX_CONCURRENT_TASKS` | 并发任务数 | `3` | 可选 |
-| `POLL_INTERVAL` | API 轮询间隔(秒) | `5` | 可选 |
-| `TASK_TIMEOUT` | 单任务超时时间(秒) | `600` | 可选 |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| **PB_URL** | PocketBase URL | `http://127.0.0.1:8090` |
+| **PB_ADMIN_EMAIL** | PB superuser email | `admin@admin.com` |
+| **PB_ADMIN_PASSWORD** | PB superuser password | `adminadmin123` |
+| `MINERU_API_TOKEN` | MinerU API token | — (free tier works without) |
+| `FLASK_PORT` | Flask listen port | `5000` |
+| `FLASK_DEBUG` | Flask debug mode | `0` |
+| `MAX_CONCURRENT_TASKS` | MinerU OCR concurrency (web default; CLI `--workers` overrides) | `3` |
+| `POLL_INTERVAL` | MinerU task-status poll interval (seconds) | `5` |
+| `TASK_TIMEOUT` | Per-file OCR timeout (seconds) | `600` |
 
-### 获取 MinerU Token
+### Getting a MinerU token
 
-1. 访问 [MinerU 官网](https://mineru.net/)
-2. 注册账号并登录
-3. 进入 [API 管理页面](https://mineru.net/apiManage)
-4. 创建/复制你的 API Token
+1. Register at [mineru.net](https://mineru.net/)
+2. Open the [API management page](https://mineru.net/apiManage)
+3. Create and copy your token
 
-> **注意**: 免费版 Agent API 无需 Token，但限制文件大小 ≤10MB 且 ≤20 页。
-> 如果需要处理更大文件或更高并发，请申请 Token。
+> **Note:** the free Agent API works without a token but limits files to ≤10MB and ≤20 pages. Use the Precision API (token required) for larger files.
 
 ---
 
-## 🧪 测试与验证
+## 🧪 Testing & verification
 
 ```bash
-# 健康检查（验证 Flask + PocketBase 连通性）
+# Health check (Flask + PocketBase connectivity)
 curl http://localhost:5000/health
-# 预期返回: {"status":"ok","pocketbase":"connected"}
+# expected: {"status":"ok","pocketbase":"connected"}
 
-# 测试 PDF 类型检测
+# PDF type detection
 python pdf_detector.py test_file.pdf
 
-# 测试 MinerU API 连接
+# MinerU API connectivity
 python mineru_client.py test_scan.pdf
 
-# CLI 快速预览一批文件的类型分布
+# Preview type distribution for a folder
 python pdf_processor.py --input ./test_pdfs --detect-only
 ```
 
+End-to-end smoke test against a running web instance:
+
+```bash
+# Upload files and create a task
+curl -F "files=@a.pdf" -F "files=@b.pdf" http://localhost:5000/api/tasks
+# → {"task_id":"..."} — then poll / download:
+curl http://localhost:5000/api/tasks/<task_id>/status
+curl -o result.csv http://localhost:5000/api/tasks/<task_id>/download
+```
+
 ---
 
-## 📂 项目结构
+## 📂 Project structure
 
 ```
-pdf-processor-all/
+pdf-all-processor/
 ├── web/
-│   ├── app.py                  # Flask Web 入口（路由/SSE/后台任务）
-│   ├── pb_client.py            # PocketBase 客户端封装
+│   ├── app.py                  # Flask entry (routes / SSE / background tasks)
+│   ├── pb_client.py            # PocketBase client wrapper
+│   ├── init_pb.py              # PB auto-init (admin + collections, PB_URL-aware)
+│   ├── run_flask.py            # Container-only Flask launcher
 │   ├── templates/
-│   │   └── index.html          # 前端单页（上传+进度+结果）
+│   │   └── index.html          # Frontend single page (upload + progress + result)
 │   └── static/
-│       └── style.css           # 样式表（响应式布局）
-├── pdf_processor.py            # 核心处理逻辑（PyMuPDF + MinerU）
-├── pdf_detector.py             # PDF 类型智能检测模块
-├── mineru_client.py            # MinerU 异步 OCR API 客户端
-├── requirements.txt            # Python 依赖清单
-├── Dockerfile                  # Docker 构建文件（含 PB + Flask）
-├── docker-entrypoint.sh        # 容器启动脚本（初始化 PB + 集合）
-├── .env.example                # 环境变量模板
-└── README.md                   # 本文件
+│       └── style.css           # Stylesheet (responsive)
+├── pdf_processor.py            # Core pipeline (PyMuPDF + MinerU dispatch, CLI entry)
+├── pdf_detector.py             # PDF type detection (fonts / density / image coverage)
+├── mineru_client.py            # MinerU async OCR API client
+├── requirements.txt            # Python dependencies
+├── Dockerfile                  # Docker build (bundles PB + Flask)
+├── docker-entrypoint.sh        # Container bootstrap (PB init + Flask)
+├── .env.example                # Environment variable template
+├── CLAUDE.md                   # Codebase guide for Claude Code sessions
+├── README.md                   # This file (English)
+└── README.zh-CN.md             # 简体中文版
 ```
 
 ---
 
-## 🚀 部署到生产环境
+## 🚀 Production deployment
 
-### Docker Compose 部署（推荐）
+### Docker Compose (recommended)
 
 ```yaml
 # docker-compose.yml
-version: "3.8"
 services:
   pdf-extractor:
     build: .
     container_name: pdf-extractor
     ports:
-      - "5000:5000"    # Flask Web
+      - "5000:5000"    # Flask web
       - "8090:8090"    # PocketBase
     environment:
       - MINERU_API_TOKEN=${MINERU_API_TOKEN}
@@ -369,8 +342,8 @@ services:
       - PB_ADMIN_EMAIL=admin@admin.com
       - PB_ADMIN_PASSWORD=your_secure_password_here
     volumes:
-      - pb_data:/pb_data          # PB 数据持久化
-      - uploads:/app/web/uploads   # 上传文件临时存储
+      - pb_data:/pb_data          # PB data persistence
+      - uploads:/app/web/uploads   # upload temp storage
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -384,42 +357,41 @@ volumes:
 ```
 
 ```bash
-# 一键启动
 docker compose up -d
 ```
 
-### 服务器部署清单
+### Server checklist
 
-- [ ] **PocketBase** v0.36.x（或让 Docker 自动安装）
-- [ ] Python 3.9+ 环境（Docker 部署则无需单独安装）
-- [ ] 开放端口：**5000**（Flask）、**8090**（PB）
-- [ ] 配置 `.env` 文件（尤其是 PB 连接信息和 MinerU Token）
-- [ ] 反向代理（Nginx/Caddy）：将 80/443 转发到 5000
-- [ ] 如果需要从外网访问 PB 管理后台，也转发 8090（生产环境建议限制 IP）
-- [ ] 配置备份策略：**pb_data 目录**（SQLite 数据库 + 存储的文件）
-- [ ] 监控日志和错误告警
+- [ ] PocketBase v0.36.x (or let Docker install it)
+- [ ] Python 3.9+ (not needed with Docker)
+- [ ] Open ports: **5000** (Flask), **8090** (PB)
+- [ ] Configure `.env` (especially PB credentials and MinerU token)
+- [ ] Reverse proxy (Nginx/Caddy): 80/443 → 5000
+- [ ] If PB admin needs external access, forward 8090 (restrict by IP in production)
+- [ ] Backup strategy for **pb_data** (SQLite + stored files)
+- [ ] Log monitoring and alerting
 
-### Nginx 反向代理参考
+### Nginx reverse proxy reference
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
 
-    # Flask Web 前端
+    # Flask web frontend
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
 
-        # SSE 长连接关键配置
+        # SSE long-connection essentials
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 3600s;
         chunked_transfer_encoding on;
     }
 
-    # PocketBase（可选，限制内网/IP白名单访问）
+    # PocketBase (optional; restrict to trusted IPs)
     location /pb-admin/ {
         proxy_pass http://127.0.0.1:8090/_/;
         allow your_trusted_ip;
@@ -428,97 +400,95 @@ server {
 }
 ```
 
-### 性能优化建议
+### Performance tips
 
-1. **控制并发数**：建议 2-5 个并发，避免触发 MinerU API 限频
-2. **大文件优先**：先处理大的扫描件，小文件后处理
-3. **PB 文件大小限制**：默认 5MB，本项目已调整为 200MB（通过 PATCH 单独设置 maxSize）
-4. **内存监控**：大量 PDF 同时处理会占用较多内存
-5. **磁盘空间**：PB 会存储原始 PDF 和 CSV，定期清理已完成的历史任务
+1. **Keep concurrency moderate**: 2–5 OCR workers avoids MinerU rate limits
+2. **Large files first**: process big scanned files early, small ones later
+3. **PB file size limit**: PB defaults to 5MB; this project raises it to 200MB (set automatically at init)
+4. **Watch memory**: many PDFs in flight consume RAM
+5. **Disk space**: PB stores original PDFs and CSVs — periodically clean completed tasks
 
 ---
 
-## CLI 使用指南（无 Web 界面）
-
-> 此模式绕过 PocketBase 和 Flask，直接在本地处理。
+## 🧰 CLI usage (no web UI)
 
 ```bash
-# 处理单个目录中的所有 PDF
+# Process every PDF in a directory
 python pdf_processor.py --input /path/to/pdfs
 
-# 处理指定的多个文件
+# Process specific files
 python pdf_processor.py --input file1.pdf file2.pdf file3.pdf
 
-# 使用 MinerU API Token
+# MinerU token (higher quota, larger files)
 python pdf_processor.py --input ./pdfs --token YOUR_TOKEN
 
-# 自定义输出路径
+# Custom output path
 python pdf_processor.py --input ./pdfs -o ./results/my_data.csv
 
-# 仅检测 PDF 类型（不实际提取）
+# OCR concurrency (default 5)
+python pdf_processor.py --input ./pdfs --workers 10
+
+# Type detection only (no extraction)
 python pdf_processor.py --input ./pdfs --detect-only
 
-# 显示详细日志
+# Verbose logs
 python pdf_processor.py --input ./pdfs --verbose
 ```
 
 ---
 
-## ❓ 常见问题
+## ❓ FAQ
 
-### Q: PocketBase 是什么？为什么需要它？
-A: **PocketBase** 是一个嵌入式 Go 后端，内建 SQLite 数据库 + 文件存储 + RESTful API + 实时订阅。本项目用它来：
-- 存储**任务状态**和**处理进度**
-- 存储**上传的 PDF 原始文件**和**生成的 CSV 结果**
-- 提供**关系型查询**（任务 ↔ 文件的 1:N 关系）
-- 支持**断点续查**历史任务记录
+**Q: What is PocketBase and why is it needed?**
+A: PocketBase is an embedded Go backend with SQLite + file storage + REST API + realtime subscriptions. This project uses it to store task state and progress, keep original PDFs and result CSVs, query task↔file relations (1:N), and revisit historical tasks. Far lighter than a PostgreSQL + MinIO + Redis stack for small/mid deployments.
 
-它比 PostgreSQL + MinIO + Redis 的组合轻量得多，适合中小规模部署。
+**Q: Can I skip PocketBase?**
+A: Not for web mode — the Flask layer depends on it for persistence and file storage. CLI mode has zero PB dependency: `python pdf_processor.py --input ...`.
 
-### Q: 可以不用 PocketBase 吗？
-A: **Web 模式不行**——Flask 层强依赖 PB 做数据持久化和文件存储。但 **CLI 模式**完全不依赖 PB，可以直接 `python pdf_processor.py --input ...` 运行。
+**Q: Why not send text PDFs to MinerU too?**
+A: Text PDFs already carry an exact, selectable text layer; OCR would only risk introducing errors. PyMuPDF reads it 100% accurately.
 
-### Q: 为什么纯文本 PDF 不要用 MinerU？
-A: 纯文本 PDF 本身包含可提取的文本层，用 OCR 反而可能引入错误识别。PyMuPDF 直接读取文本层是 100% 准确的。
+**Q: Limits of the free API?**
+A: The Agent lightweight API is token-free but caps files at ≤10MB and ≤20 pages. Beyond that, use the Precision API with a token.
 
-### Q: 免费 API 有限制吗？
-A: Agent 轻量 API 免 Token 但限制：文件 ≤10MB，页数 ≤20 页。超过此限制需使用精准 API（需要 Token）。
+**Q: What happens when a file fails?**
+A: One failing file never blocks the batch — failures are flagged in the CSV `error` column and counted in task stats.
 
-### Q: 处理失败怎么办？
-A: 单个文件失败不影响其他文件。失败的文件在 CSV 中会有 error 列标注原因。可以单独重试。
-
-### Q: 如何集成到 ElasticSearch？
-A: CSV 输出后可以用 Logstash、Filebeat 或自定义脚本导入 ES。后续可以考虑增加直连 ES 的功能。
-
-### Q: PocketBase 数据丢了怎么办？
-A: 所有数据都在 `pb_data` 目录下的 SQLite 文件中。**定时备份此目录即可**。Docker 部署时建议挂载命名卷（volume）。
+**Q: PocketBase data lost?**
+A: Everything lives in the `pb_data` directory (SQLite + files). Back up that directory on a schedule; mount a named volume with Docker.
 
 ---
 
-## 📝 更新日志
+## 📝 Changelog
 
-### v2.0.0 (2025-04)
-- ✅ **全新 Web 界面**：Flask + SSE 实时进度推送
-- ✅ **引入 PocketBase**：任务持久化、文件存储、历史查询
-- ✅ **Docker 一键部署**：镜像内置 PocketBase + Flask
-- ✅ **PDF 类型分布可视化**：前端三栏卡片 + 结果徽章
-- ✅ **SSE 实时进度**：无刷新更新，支持取消任务
-- ✅ **健康检查端点**：`/health` 验证 PB 连通性
-- ✅ **Nginx SSE 适配**：提供反向代理参考配置
+### v2.1.0 (2026-09)
+- ✅ Bilingual README (English + 简体中文)
+- ✅ All documented env vars actually wired: `PB_URL`, `MAX_CONCURRENT_TASKS`, `POLL_INTERVAL`, `TASK_TIMEOUT`
+- ✅ CLI `--workers` flag now controls MinerU OCR concurrency
+- ✅ Web task lifecycle hardening: valid-JSON `cancelled` SSE events, `cancelled` treated as terminal status, worker-thread state cleanup, race-free CSV download temp files
+- ✅ Added `.env.example`, `.gitignore`, `CLAUDE.md`
+
+### v2.0.1 (2026-04)
+- ✅ Docker build hardening: pinned Debian Bookworm, PB download retries, pip mirror fallback
+- ✅ PocketBase init extracted to `web/init_pb.py` (auto admin + collections, rebuilds incomplete sets, 200MB file limit)
+- ✅ CSV output: new `filename` column (source filename without `.pdf`)
+
+### v2.0.0 (2026-04)
+- ✅ Brand-new web UI: Flask + SSE live progress
+- ✅ PocketBase integration: task persistence, file storage, history
+- ✅ Docker one-command deploy (bundles PocketBase + Flask)
+- ✅ PDF type breakdown visualization: frontend cards + result badges
+- ✅ SSE realtime progress with task cancellation
+- ✅ `/health` endpoint; Nginx SSE proxy reference config
 
 ### v1.0.0 (2025-01)
-- ✅ 初始版本发布（CLI 模式）
-- ✅ 支持三种 PDF 类型智能检测
-- ✅ PyMuPDF + MinerU 双引擎
-- ✅ 异步批量处理
-- ✅ 详细统计报告
+- ✅ Initial release (CLI mode)
+- ✅ Three-type PDF detection
+- ✅ PyMuPDF + MinerU dual engine
+- ✅ Async batch processing with stats report
 
 ---
 
-## 👥 开发团队
-
-由资深开发工程师设计并实现，专注于代码质量和生产可用性。
-
-## 📄 许可证
+## 📄 License
 
 MIT License
