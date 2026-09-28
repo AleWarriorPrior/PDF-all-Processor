@@ -34,7 +34,6 @@ from flask import (
     Flask, render_template, request, jsonify,
     send_file, Response
 )
-from werkzeug.utils import secure_filename
 import pandas as pd
 from loguru import logger
 
@@ -294,14 +293,21 @@ def task_events(task_id: str):
                     last_status = current_status
                     last_processed = processed
 
+                # 任务已取消 → 推送 cancelled 事件并关闭流
+                # （服务器重启后 _task_cancel_flags 丢失，只能依赖 PB 中的状态判断）
+                if current_status == "cancelled":
+                    yield f"event: cancelled\ndata: {json.dumps({'task_id': task_id, 'status': 'cancelled'}, ensure_ascii=False)}\n\n"
+                    break
+
                 # 任务结束（完成或失败）则关闭流
                 if current_status in ("completed", "failed"):
                     yield f"event: done\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
                     break
 
-                # 检查是否被取消
-                if task_id in _task_cancel_flags and _task_cancel_flags[task_id].is_set():
-                    yield f"event: cancelled\ndata: {{'task_id': '{task_id}', 'status': 'cancelled'}}\n\n"
+                # 检查是否被取消（用 get 避免与后台线程 finally 清理时的并发竞争）
+                _cancel_flag = _task_cancel_flags.get(task_id)
+                if _cancel_flag is not None and _cancel_flag.is_set():
+                    yield f"event: cancelled\ndata: {json.dumps({'task_id': task_id, 'status': 'cancelled'}, ensure_ascii=False)}\n\n"
                     break
 
             except Exception as e:
@@ -381,8 +387,10 @@ def download_result(task_id: str):
             file_url = pb.get_file_url("tasks", task_id, "result_csv", csv_filename)
             csv_content = pb.download_file(file_url)
 
-            # 写入临时文件以便 send_file 使用
-            tmp_path = Path(tempfile.gettempdir()) / f"pb_download_{task_id}.csv"
+            # 写入临时文件以便 send_file 使用（唯一文件名，避免并发下载互相覆盖）
+            _fd, _tmp_name = tempfile.mkstemp(prefix=f"pb_download_{task_id}_", suffix=".csv")
+            os.close(_fd)
+            tmp_path = Path(_tmp_name)
             tmp_path.write_bytes(csv_content)
 
             return send_file(
@@ -589,6 +597,10 @@ def _process_task_background(task_id: str, file_paths: list):
             pb.update_task_progress(task_id, status="failed", error_message=str(e)[:500])
         except Exception:
             pass
+    finally:
+        # 线程退出后清理运行态（_task_type_stats 保留：任务完成后 status/结果页仍需读取）
+        _active_tasks.pop(task_id, None)
+        _task_cancel_flags.pop(task_id, None)
 
 
 # ════════════════════════════════════════════
